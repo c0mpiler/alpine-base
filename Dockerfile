@@ -17,7 +17,6 @@ RUN set -ex \
 		tar \
 		xz \
     git \
-    bash \
     ca-certificates \
     wget \
     gcc \
@@ -103,5 +102,18 @@ RUN ls -Fla /usr/local/bin/p* \
 
 RUN sed -i -e 's/python/python3/g' /usr/local/bin/pip3
 RUN sed -i -e 's/python/python3.7/g' /usr/local/bin/pip3.7
+
+USER root
+
+RUN cat /etc/apk/repositories
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" > /etc/apk/repositories \
+  && echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
+  && echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
+	&& apk update \
+	&& apk add --no-cache dumb-init musl linux-headers build-base wget gfortran freetype-dev libpng-dev openblas-dev gcc
+
+RUN pip install --no-cache-dir numpy scipy pandas seaborn
+#RUN pip3 install --no-cache-dir scipy pandas seaborn
+RUN apk --no-cache add boost-filesystem boost-system boost-program_options boost-date_time boost-thread boost-iostreams openssl musl-utils libstdc++
 
 CMD ["/bin/ash"]
