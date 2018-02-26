@@ -83,7 +83,7 @@ RUN apk add --no-cache \
   RUN rm -rf /tmp/build
   RUN rm -rf /var/cache/apk/*
 
-  RUN apk --no-cache add boost-filesystem boost-system boost-program_options boost-date_time boost-thread boost-iostreams musl-utils
+RUN apk --no-cache add boost-filesystem boost-system boost-program_options boost-date_time boost-thread boost-iostreams musl-utils boost-dev boost-python boost-python3 boost-graph boost boost-build
 
 RUN python3 -m pip --no-cache-dir install seaborn
 RUN python2 -m pip --no-cache-dir install seaborn
