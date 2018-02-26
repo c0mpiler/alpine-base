@@ -1,119 +1,91 @@
-# Starts with python:3.7.0b1-alpine3.7 and then installs most of python:2.7.13-alpine on top
-# to allows us to choose Python versions at runtime via: python2, python3, pip2, pip3, etc.
-FROM python:3.7.0b1-alpine3.7
+FROM alpine:latest
 
-RUN cp /usr/local/bin/pip /usr/local/bin/pip3.7
+MAINTAINER Harsha Krishnareddy <c0mpiler@outlook.com>
 
-ENV GPG_KEY C01E1CAD5EA2C4F0B8E3571504C367C218ADD4FF
-ENV PYTHON_VERSION 2.7.13
+ARG REQUIRE="sudo build-base"
+RUN apk update && apk upgrade \
+      && apk add --no-cache ${REQUIRE}
 
-# if this is called "PIP_VERSION", pip explodes with "ValueError: invalid truth value '<VERSION>'"
-ENV PYTHON_PIP_VERSION 9.0.1
-
-RUN set -ex \
-	&& apk add --no-cache --virtual .fetch-deps \
-		gnupg \
-		openssl \
-		tar \
-		xz \
-    git \
-    ca-certificates \
-    wget \
-    gcc \
-	\
-	&& wget -O python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz" \
-	&& wget -O python.tar.xz.asc "https://www.python.org/ftp/python/${PYTHON_VERSION%%[a-z]*}/Python-$PYTHON_VERSION.tar.xz.asc" \
-	&& export GNUPGHOME="$(mktemp -d)" \
-	&& gpg --keyserver ha.pool.sks-keyservers.net --recv-keys "$GPG_KEY" \
-	&& gpg --batch --verify python.tar.xz.asc python.tar.xz \
-	&& rm -r "$GNUPGHOME" python.tar.xz.asc \
-	&& mkdir -p /usr/src/python \
-	&& tar -xJC /usr/src/python --strip-components=1 -f python.tar.xz \
-	&& rm python.tar.xz \
-	\
-	&& apk add --no-cache --virtual .build-deps  \
-		bzip2-dev \
-		gcc \
-		gdbm-dev \
-		libc-dev \
-		linux-headers \
-		make \
-		ncurses-dev \
-		openssl \
-		openssl-dev \
-		pax-utils \
-		readline-dev \
-		sqlite-dev \
-		tcl-dev \
-		tk \
-		tk-dev \
-		zlib-dev \
-    bash \
-    bash-doc \
-    bash-completion \
-# add build deps before removing fetch deps in case there's overlap
-	&& apk del .fetch-deps \
-	\
-	&& cd /usr/src/python \
-	&& ./configure \
-		--enable-shared \
-		--enable-unicode=ucs4 \
-	&& make -j$(getconf _NPROCESSORS_ONLN) \
-	&& make install \
-	\
-		&& wget -O /tmp/get-pip.py 'https://bootstrap.pypa.io/get-pip.py' \
-		&& python2 /tmp/get-pip.py "pip==$PYTHON_PIP_VERSION" \
-    && python3 /tmp/get-pip.py "pip==$PYTHON_PIP_VERSION" \
-		&& rm /tmp/get-pip.py \
-# we use "--force-reinstall" for the case where the version of pip we're trying to install is the same as the version bundled with Python
-# ("Requirement already up-to-date: pip==8.1.2 in /usr/local/lib/python3.7/site-packages")
-# https://github.com/docker-library/python/pull/143#issuecomment-241032683
-	&& pip install --no-cache-dir --upgrade --force-reinstall "pip==$PYTHON_PIP_VERSION" \
-  && pip3.7 install --no-cache-dir --upgrade --force-reinstall "pip==$PYTHON_PIP_VERSION" \
-# then we use "pip list" to ensure we don't have more than one pip version installed
-# https://github.com/docker-library/python/pull/100
-#	&& [ "$(pip list |tac|tac| awk -F '[ ()]+' '$1 == "pip" { print $2; exit }')" = "$PYTHON_PIP_VERSION" ] \
-	\
-	&& find /usr/local -depth \
-		\( \
-			\( -type d -a -name test -o -name tests \) \
-			-o \
-			\( -type f -a -name '*.pyc' -o -name '*.pyo' \) \
-		\) -exec rm -rf '{}' + \
-	&& runDeps="$( \
-		scanelf --needed --nobanner --recursive /usr/local \
-			| awk '{ gsub(/,/, "\nso:", $2); print "so:" $2 }' \
-			| sort -u \
-			| xargs -r apk info --installed \
-			| sort -u \
-	)" \
-	&& apk add --virtual .python-rundeps $runDeps \
-	&& apk del .build-deps \
-	&& rm -rf /usr/src/python ~/.cache \
-    && cp /usr/local/bin/pip3.7 /usr/local/bin/pip3  # reenable pip3
-
-RUN ls -Fla /usr/local/bin/p* \
-    && which python  && python -V \
-    && which python2 && python2 -V \
-    && which python3 && python3 -V \
-    && which pip     && pip -V \
-    && which pip2    && pip2 -V \
-    && which pip3    && pip3 -V
-
-RUN sed -i -e 's/python/python3/g' /usr/local/bin/pip3
-RUN sed -i -e 's/python/python3.7/g' /usr/local/bin/pip3.7
-
-USER root
-
-RUN cat /etc/apk/repositories
 RUN echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" > /etc/apk/repositories \
   && echo "http://dl-cdn.alpinelinux.org/alpine/edge/community" >> /etc/apk/repositories \
-  && echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories \
-	&& apk update \
-	&& apk add --no-cache dumb-init musl linux-headers build-base wget gfortran freetype-dev libpng-dev openblas-dev gcc
+  && echo "http://dl-cdn.alpinelinux.org/alpine/edge/main" >> /etc/apk/repositories
 
-RUN pip install --no-cache-dir numpy scipy pandas seaborn
-#RUN pip3 install --no-cache-dir scipy pandas seaborn
-RUN apk --no-cache add boost-filesystem boost-system boost-program_options boost-date_time boost-thread boost-iostreams openssl musl-utils libstdc++
+RUN apk update && apk upgrade
+RUN apk add --no-cache \
+			build-base \
+			gfortran \
+			libffi-dev \
+			ca-certificates \
+			libgfortran \
+			python3 \
+			python2 \
+			py-setuptools \
+			py3-setuptools \
+			py2-pip \
+			bash \
+      bash-doc \
+      bash-completion \
+			bzip2-dev \
+			gcc \
+			gdbm-dev \
+			libc-dev \
+			linux-headers \
+			ncurses-dev \
+			openssl \
+			openssl-dev \
+			pax-utils \
+			readline-dev \
+			sqlite-dev \
+			tcl-dev \
+			tk \
+			tk-dev \
+			zlib-dev \
+			git \
+      lapack-dev \
+      libstdc++ \
+      gfortran \
+      g++ \
+      make \
+      python3-dev \
+      python2-dev
+
+  USER root
+	RUN ln -s /usr/include/locale.h /usr/include/xlocale.h
+  RUN mkdir -p /tmp/build \
+    && cd /tmp/build \
+    && wget http://www.netlib.org/blas/blas-3.6.0.tgz \
+    && wget http://www.netlib.org/lapack/lapack-3.6.1.tgz \
+    && tar xzf blas-3.6.0.tgz \
+    && tar xzf lapack-3.6.1.tgz \
+    && chown -R root:root BLAS-3.6.0 \
+    && chown -R root:root lapack-3.6.1 \
+    && chmod -R 777 /tmp/build/BLAS-3.6.0 \
+    && chmod -R 777 /tmp/build/lapack-3.6.1 \
+    && cd /tmp/build/BLAS-3.6.0/ \
+    && gfortran -O3 -std=legacy -m64 -fno-second-underscore -fPIC -c *.f \
+    && ar r libfblas.a *.o \
+    && ranlib libfblas.a \
+    && mv libfblas.a /tmp/build/. \
+    && cd /tmp/build/lapack-3.6.1/ \
+    && sed -e "s/frecursive/fPIC/g" -e "s/ \.\.\// /g" -e "s/^CBLASLIB/\#CBLASLIB/g" make.inc.example > make.inc \
+    && make lapacklib \
+    && make clean \
+    && mv liblapack.a /tmp/build/. \
+    && cd / \
+    && export BLAS=/tmp/build/libfblas.a \
+    && export LAPACK=/tmp/build/liblapack.a
+
+  RUN python3 -m pip --no-cache-dir install pip -U
+  RUN python3 -m pip --no-cache-dir install scipy
+  RUN python2 -m pip --no-cache-dir install pip -U
+  RUN python2 -m pip --no-cache-dir install scipy
+  #RUN apk del --purge -r build_dependencies
+  RUN rm -rf /tmp/build
+  RUN rm -rf /var/cache/apk/*
+
+  RUN apk --no-cache add boost-filesystem boost-system boost-program_options boost-date_time boost-thread boost-iostreams musl-utils
+
+RUN python3 -m pip --no-cache-dir install seaborn
+RUN python2 -m pip --no-cache-dir install seaborn
 
 CMD ["/bin/ash"]
