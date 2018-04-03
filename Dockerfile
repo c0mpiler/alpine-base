@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM openjdk:8-jre-alpine
 
 MAINTAINER Harsha Krishnareddy <c0mpiler@outlook.com>
 
